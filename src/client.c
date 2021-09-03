@@ -5,6 +5,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
+#include <openssl/bn.h>
+#include <openssl/pem.h>
 
 #include "client.h"
 
@@ -22,14 +24,43 @@ int init_client(char *ipaddr, uint16_t port) {
         C_CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
-    char buf[15];
-    bzero(buf, 15);
-    int bytes_rcv = recv(fd_client, buf, 14, 0);
-    if (bytes_rcv < 0) {
+    RSA *publickey = c_recv_publickey(fd_client);
+    if (publickey == NULL) {
         C_CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
+    RSA_free(publickey);
     C_CLOSE_SOCKET(fd_client);
-    printf("%s\n", buf);
     return EXIT_SUCCESS;
+}
+
+RSA *c_recv_publickey(int fd) {
+    char buf[4096];
+    bzero(buf, 4096);
+    int bytes_rcv = recv(fd, buf, 4095, 0);
+    if (bytes_rcv < 0) {
+        return NULL;
+    }
+    printf("\n\n%s\n\n", buf);
+    FILE *fp = fopen("recieved.key", "w+");
+    if (fp == NULL) {
+        return NULL;
+    }
+    fwrite(buf, sizeof(char), bytes_rcv, fp);
+    fseek(fp, 0, SEEK_SET);
+    RSA *publickey = RSA_new();
+    if (publickey == NULL) {
+        fclose(fp);
+        unlink("recieved.key");
+        return NULL;
+    }
+    if (PEM_read_RSAPublicKey(fp, &publickey, NULL, NULL) == NULL) {
+        RSA_free(publickey);
+        fclose(fp);
+        unlink("recieved.key");
+        return NULL;
+    }
+    fclose(fp);
+    unlink("recieved.key");
+    return publickey;
 }
