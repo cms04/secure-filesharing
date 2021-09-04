@@ -54,6 +54,17 @@ int init_server(char *ipaddr, uint16_t port) {
         CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
+
+    FILE *fp = fopen("server_got.msg", "w");
+    recv_file(fp, fd_client, key, NULL);
+    fclose(fp);
+    fp = fopen("server.msg", "w+");
+    fprintf(fp, "Hallo Client!");
+    send_file(fp, fd_client, publickey, NULL);
+    fclose(fp);
+    unlink("server.msg");
+
+
     RSA_free(publickey);
     RSA_free(key);
     CLOSE_SOCKET(fd_client);
@@ -84,6 +95,15 @@ int s_send_publickey(int fd, RSA *key) {
         RSA_free(publickey);
         fclose(fp);
         unlink("sended.key");
+        return EXIT_FAILURE;
+    }
+    bzero(buf, len);
+    snprintf(buf, len - 1, "%ld", len);
+    if (send(fd, buf, 15, 0) < 0) {
+        RSA_free(publickey);
+        fclose(fp);
+        unlink("sended.key");
+        free(buf);
         return EXIT_FAILURE;
     }
     bzero(buf, len);

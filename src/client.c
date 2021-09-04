@@ -42,6 +42,16 @@ int init_client(char *ipaddr, uint16_t port) {
         CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
+
+    FILE *fp = fopen("client.msg", "w+");
+    fprintf(fp, "Hallo Server!");
+    send_file(fp, fd_client, publickey, NULL);
+    fclose(fp);
+    unlink("client.msg");
+    fp = fopen("client_got.msg", "w");
+    recv_file(fp, fd_client, key, NULL);
+    fclose(fp);
+
     RSA_free(key);
     RSA_free(publickey);
     CLOSE_SOCKET(fd_client);
@@ -49,12 +59,18 @@ int init_client(char *ipaddr, uint16_t port) {
 }
 
 RSA *c_recv_publickey(int fd) {
-    char *buf = (char *) malloc(4096 * sizeof(char));
+    char len_string[16];
+    bzero(len_string, 16);
+    if (recv(fd, len_string, 15, 0) < 0) {
+        return NULL;
+    }
+    size_t len = strtoul(len_string, NULL, 10);
+    char *buf = (char *) malloc(len * sizeof(char));
     if (buf == NULL) {
         return NULL;
     }
-    bzero(buf, 4096);
-    int bytes_rcv = recv(fd, buf, 4095, 0);
+    bzero(buf, len);
+    int bytes_rcv = recv(fd, buf, len, 0);
     if (bytes_rcv < 0) {
         free(buf);
         return NULL;
