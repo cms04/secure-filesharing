@@ -62,6 +62,7 @@ int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len) {
         free(block);
         PRINT_ERROR("send");
     }
+    LOG_BLOCKS(block_count);
     for (size_t i = 0; i < block_count; i++) {
         bzero(block, block_size);
         fread(block, sizeof(char), block_size, fp);
@@ -75,6 +76,7 @@ int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len) {
             free(block);
             PRINT_ERROR("send");
         }
+        LOG_PROGRESS(i + 1, block_count);
     }
     free(block);
     free(crypt);
@@ -106,6 +108,7 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
         ERROR_OPENSSL("RSA_private_decrypt");
     }
     ssize_t block_count = strtoull(block, NULL, 10);
+    LOG_RECIEVING(block_count);
     for (ssize_t i = 0; i < block_count; i++) {
         bzero(crypt, rsa_size);
         if (recv(fd, crypt, rsa_size, 0) < 0) {
@@ -120,6 +123,7 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
             ERROR_OPENSSL("RSA_private_decrypt");
         }
         fwrite(block, sizeof(char), block_size, fp);
+        LOG_RECIEVED(i + 1, block_count);
     }
     if (len != NULL) {
         *len = ftell(fp);

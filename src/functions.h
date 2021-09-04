@@ -8,6 +8,12 @@
 #include <string.h>
 #include <stdio.h>
 
+#define LOG(text) printf("[✔] %s\n", text)
+#define LOG_BLOCKS(sum) printf("[✔] Sending %ld blocks...\n\n", sum)
+#define LOG_RECIEVING(sum) printf("[✔] Recieving %ld blocks...\n\n", sum)
+#define LOG_PROGRESS(part, sum) printf("\033[A\r\tSended block %ld of %ld\t\t(%3.0f percent)\n", part, sum, 100 * ((float) part) / sum)
+#define LOG_RECIEVED(part, sum) printf("\033[A\r\tRecieved block %ld of %ld\t\t(%3.0f percent)\n", part, sum, 100 * ((float) part) / sum)
+
 #define ERROR_OPENSSL(function) fprintf(stderr, "ERROR: %s() failed at %s, line %d: %s\n", function, __FILE__, __LINE__, ERR_error_string(ERR_get_error(), NULL)); \
                                 return EXIT_FAILURE
 

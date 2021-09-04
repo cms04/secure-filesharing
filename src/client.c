@@ -12,6 +12,7 @@
 #include "functions.h"
 
 int init_client(char *ipaddr, uint16_t port) {
+    LOG("Initializing connection...");
     int fd_client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd_client < 0) {
         PRINT_ERROR("socket");
@@ -25,23 +26,28 @@ int init_client(char *ipaddr, uint16_t port) {
         CLOSE_SOCKET(fd_client);
         PRINT_ERROR("connect");
     }
+    LOG("Accepted one connection.");
     RSA *publickey = c_recv_publickey(fd_client);
     if (publickey == NULL) {
         CLOSE_SOCKET(fd_client);
         PRINT_ERROR("c_recv_publickey");
     }
+    LOG("Recieved the server's RSA publickey.");
+    LOG("Generating an RSA key pair...");
     RSA *key = create_rsa_key();
     if (key == NULL) {
         RSA_free(publickey);
         CLOSE_SOCKET(fd_client);
         PRINT_ERROR("create_rsa_key");
     }
+    LOG("Key pair successfully generated.");
     if (c_send_publickey(fd_client, key, publickey)) {
         RSA_free(publickey);
         RSA_free(key);
         CLOSE_SOCKET(fd_client);
         PRINT_ERROR("c_send_publickey");
     }
+    LOG("Your publickey was sended to the server.");
 
     FILE *fp = fopen("client.msg", "w+");
     fprintf(fp, "Hallo Server!");
@@ -53,7 +59,9 @@ int init_client(char *ipaddr, uint16_t port) {
 
     RSA_free(key);
     RSA_free(publickey);
+    LOG("Closing connection...");
     CLOSE_SOCKET(fd_client);
+    LOG("Connection closed.");
     return EXIT_SUCCESS;
 }
 
