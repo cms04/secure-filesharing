@@ -5,10 +5,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
-#include <openssl/bn.h>
 #include <openssl/pem.h>
+#include <unistd.h>
 
 #include "client.h"
+#include "functions.h"
 
 int init_client(char *ipaddr, uint16_t port) {
     int fd_client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -29,24 +30,29 @@ int init_client(char *ipaddr, uint16_t port) {
         C_CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
+    RSA *key = create_rsa_key();
+    c_send_publickey(fd_client, key, publickey);
+    RSA_free(key);
     RSA_free(publickey);
     C_CLOSE_SOCKET(fd_client);
     return EXIT_SUCCESS;
 }
 
 RSA *c_recv_publickey(int fd) {
-    char buf[4096];
+    char *buf = (char *) malloc(4096 * sizeof(char));
     bzero(buf, 4096);
     int bytes_rcv = recv(fd, buf, 4095, 0);
     if (bytes_rcv < 0) {
+        free(buf);
         return NULL;
     }
-    printf("\n\n%s\n\n", buf);
     FILE *fp = fopen("recieved.key", "w+");
     if (fp == NULL) {
+        free(buf);
         return NULL;
     }
     fwrite(buf, sizeof(char), bytes_rcv, fp);
+    free(buf);
     fseek(fp, 0, SEEK_SET);
     RSA *publickey = RSA_new();
     if (publickey == NULL) {
@@ -63,4 +69,22 @@ RSA *c_recv_publickey(int fd) {
     fclose(fp);
     unlink("recieved.key");
     return publickey;
+}
+
+int c_send_publickey(int fd, RSA *key, RSA *otherkey) {
+    RSA *publickey = RSAPublicKey_dup(key);
+    if (publickey == NULL) {
+        return EXIT_FAILURE;
+    }
+    FILE *fp = fopen("sended.key", "w+");
+    if (fp == NULL) {
+        RSA_free(publickey);
+        return EXIT_FAILURE;
+    }
+    PEM_write_RSAPublicKey(fp, publickey);
+    int status = send_file(fp, fd, otherkey);
+    fclose(fp);
+    unlink("sended.key");
+    RSA_free(publickey);
+    return status;
 }

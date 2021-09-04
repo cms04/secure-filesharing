@@ -8,6 +8,7 @@
 #include <openssl/pem.h>
 
 #include "server.h"
+#include "functions.h"
 
 int init_server(char *ipaddr, uint16_t port) {
     int fd_server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -34,42 +35,19 @@ int init_server(char *ipaddr, uint16_t port) {
         S_CLOSE_SOCKET(fd_server);
         return EXIT_FAILURE;
     }
-    RSA *key = s_create_rsa_key();
+    RSA *key = create_rsa_key();
     if (s_send_publickey(fd_client, key)) {
         RSA_free(key);
         S_CLOSE_SOCKET(fd_server);
         S_CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
+    RSA *publickey = s_recv_publickey(fd_client, key);
+    RSA_free(publickey);
     RSA_free(key);
     S_CLOSE_SOCKET(fd_client);
     S_CLOSE_SOCKET(fd_server);
     return EXIT_SUCCESS;
-}
-
-RSA *s_create_rsa_key(void) {
-    RSA *key = RSA_new();
-    if (key == NULL) {
-        return NULL;
-    }
-    srand(time(NULL));
-    BIGNUM *e = BN_new();
-    if (e == NULL) {
-        RSA_free(key);
-        return NULL;
-    }
-    if (!BN_set_word(e, RSA_F4)) {
-        RSA_free(key);
-        BN_clear_free(e);
-        return NULL;
-    }
-    if (!RSA_generate_key_ex(key, 4096, e, NULL)) {
-        RSA_free(key);
-        BN_clear_free(e);
-        return NULL;
-    }
-    BN_clear_free(e);
-    return key;
 }
 
 int s_send_publickey(int fd, RSA *key) {
@@ -91,10 +69,36 @@ int s_send_publickey(int fd, RSA *key) {
     int bytes_sent = send(fd, buf, len, 0);
     if (bytes_sent < 0) {
         RSA_free(publickey);
+        fclose(fp);
+        unlink("sended.key");
         return EXIT_FAILURE;
     }
     fclose(fp);
     unlink("sended.key");
     RSA_free(publickey);
     return EXIT_SUCCESS;
+}
+
+RSA *s_recv_publickey(int fd, RSA *key) {
+    FILE *fp = fopen("recieved.key", "w+");
+    if (fp == NULL) {
+        return NULL;
+    }
+    recv_file(fp, fd, key, NULL);
+    fseek(fp, 0, SEEK_SET);
+    RSA *publickey = RSA_new();
+    if (publickey == NULL) {
+        fclose(fp);
+        unlink("recieved.key");
+        return NULL;
+    }
+    if (PEM_read_RSAPublicKey(fp, &publickey, NULL, NULL) == NULL) {
+        RSA_free(publickey);
+        fclose(fp);
+        unlink("recieved.key");
+        return NULL;
+    }
+    fclose(fp);
+    unlink("recieved.key");
+    return publickey;
 }
