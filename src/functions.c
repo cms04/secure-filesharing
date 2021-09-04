@@ -1,30 +1,29 @@
 #include <openssl/bn.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <string.h>
 
 #include "functions.h"
 
 RSA *create_rsa_key(void) {
     RSA *key = RSA_new();
     if (key == NULL) {
-        return NULL;
+        ERROR_OPENSSL_RETURN_NULL("RSA_new");
     }
     srand(time(NULL));
     BIGNUM *e = BN_new();
     if (e == NULL) {
         RSA_free(key);
-        return NULL;
+        ERROR_OPENSSL_RETURN_NULL("BN_new");
     }
     if (!BN_set_word(e, RSA_F4)) {
         RSA_free(key);
         BN_clear_free(e);
-        return NULL;
+        ERROR_OPENSSL_RETURN_NULL("BN_set_word");
     }
     if (!RSA_generate_key_ex(key, 4096, e, NULL)) {
         RSA_free(key);
         BN_clear_free(e);
-        return NULL;
+        ERROR_OPENSSL_RETURN_NULL("RSA_generate_key_ex");
     }
     BN_clear_free(e);
     return key;
@@ -42,26 +41,26 @@ int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len) {
     ssize_t block_count = msg_len / block_size + 1;
     char *crypt = (char *) malloc(rsa_size * sizeof(char));
     if (crypt == NULL) {
-        return EXIT_FAILURE;
+        PRINT_ERROR("malloc");
     }
     bzero(crypt, rsa_size);
     char *block = (char *) malloc(block_size * sizeof(char));
     if (block == NULL) {
         free(crypt);
-        return EXIT_FAILURE;
+        PRINT_ERROR("malloc");
     }
     bzero(block, block_size);
     snprintf(block, block_size - 1, "%ld", block_count);
     if (RSA_public_encrypt(block_size, (unsigned char *) block, (unsigned char *) crypt, otherkey, RSA_PKCS1_OAEP_PADDING) < 0) {
         free(crypt);
         free(block);
-        return EXIT_FAILURE;
+        ERROR_OPENSSL("RSA_public_encrypt");
     }
     int bytes_sent = send(fd, crypt, rsa_size, 0);
     if (bytes_sent < 0) {
         free(crypt);
         free(block);
-        return EXIT_FAILURE;
+        PRINT_ERROR("send");
     }
     for (size_t i = 0; i < block_count; i++) {
         bzero(block, block_size);
@@ -69,12 +68,12 @@ int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len) {
         if (RSA_public_encrypt(block_size, (unsigned char *) block, (unsigned char *) crypt, otherkey, RSA_PKCS1_OAEP_PADDING) < 0) {
             free(crypt);
             free(block);
-            return EXIT_FAILURE;
+            ERROR_OPENSSL("RSA_public_encrypt");
         }
         if (send(fd, crypt, rsa_size, 0) < 0) {
             free(crypt);
             free(block);
-            return EXIT_FAILURE;
+            PRINT_ERROR("send");
         }
     }
     free(block);
@@ -87,24 +86,24 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
     size_t block_size = rsa_size - 42;
     char *crypt = (char *) malloc(rsa_size * sizeof(char));
     if (crypt == NULL) {
-        return EXIT_FAILURE;
+        PRINT_ERROR("malloc");
     }
     bzero(crypt, rsa_size);
     char *block = (char *) malloc(block_size * sizeof(char));
     if (block == NULL) {
         free(crypt);
-        return EXIT_FAILURE;
+        PRINT_ERROR("malloc");
     }
     bzero(block, block_size);
     if (recv(fd, crypt, rsa_size, 0) < 0) {
         free(crypt);
         free(block);
-        return EXIT_FAILURE;
+        PRINT_ERROR("recv");
     }
     if (RSA_private_decrypt(rsa_size, (unsigned char *) crypt, (unsigned char *) block, key, RSA_PKCS1_OAEP_PADDING) < 0) {
         free(crypt);
         free(block);
-        return EXIT_FAILURE;
+        ERROR_OPENSSL("RSA_private_decrypt");
     }
     ssize_t block_count = strtoull(block, NULL, 10);
     for (ssize_t i = 0; i < block_count; i++) {
@@ -112,13 +111,13 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
         if (recv(fd, crypt, rsa_size, 0) < 0) {
             free(crypt);
             free(block);
-            return EXIT_FAILURE;
+            PRINT_ERROR("recv");
         }
         bzero(block, block_size);
         if (RSA_private_decrypt(rsa_size, (unsigned char *) crypt, (unsigned char *) block, key, RSA_PKCS1_OAEP_PADDING) < 0) {
             free(crypt);
             free(block);
-            return EXIT_FAILURE;
+            ERROR_OPENSSL("RSA_private_decrypt");
         }
         fwrite(block, sizeof(char), block_size, fp);
     }
