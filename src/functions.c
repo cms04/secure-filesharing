@@ -30,16 +30,26 @@ RSA *create_rsa_key(void) {
     return key;
 }
 
-int send_file(FILE *fp, int fd, RSA *otherkey) {
+int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len) {
     fseek(fp, 0, SEEK_END);
     ssize_t msg_len = ftell(fp);
+    if (len != NULL) {
+        *len = msg_len;
+    }
     fseek(fp, 0, SEEK_SET);
     size_t rsa_size = RSA_size(otherkey);
     size_t block_size = rsa_size - 42;
     ssize_t block_count = msg_len / block_size + 1;
     char *crypt = (char *) malloc(rsa_size * sizeof(char));
+    if (crypt == NULL) {
+        return EXIT_FAILURE;
+    }
     bzero(crypt, rsa_size);
     char *block = (char *) malloc(block_size * sizeof(char));
+    if (block == NULL) {
+        free(crypt);
+        return EXIT_FAILURE;
+    }
     bzero(block, block_size);
     snprintf(block, block_size - 1, "%ld", block_count);
     if (RSA_public_encrypt(block_size, (unsigned char *) block, (unsigned char *) crypt, otherkey, RSA_PKCS1_OAEP_PADDING) < 0) {
@@ -76,8 +86,15 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
     size_t rsa_size = RSA_size(key);
     size_t block_size = rsa_size - 42;
     char *crypt = (char *) malloc(rsa_size * sizeof(char));
+    if (crypt == NULL) {
+        return EXIT_FAILURE;
+    }
     bzero(crypt, rsa_size);
     char *block = (char *) malloc(block_size * sizeof(char));
+    if (block == NULL) {
+        free(crypt);
+        return EXIT_FAILURE;
+    }
     bzero(block, block_size);
     if (recv(fd, crypt, rsa_size, 0) < 0) {
         free(crypt);

@@ -22,24 +22,37 @@ int init_client(char *ipaddr, uint16_t port) {
     server_addr.sin_addr.s_addr = inet_addr(ipaddr);
     server_addr.sin_port = htons(port);
     if (connect(fd_client, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
-        C_CLOSE_SOCKET(fd_client);
+        CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
     RSA *publickey = c_recv_publickey(fd_client);
     if (publickey == NULL) {
-        C_CLOSE_SOCKET(fd_client);
+        CLOSE_SOCKET(fd_client);
         return EXIT_FAILURE;
     }
     RSA *key = create_rsa_key();
-    c_send_publickey(fd_client, key, publickey);
+    if (key == NULL) {
+        RSA_free(publickey);
+        CLOSE_SOCKET(fd_client);
+        return EXIT_FAILURE;
+    }
+    if (c_send_publickey(fd_client, key, publickey)) {
+        RSA_free(publickey);
+        RSA_free(key);
+        CLOSE_SOCKET(fd_client);
+        return EXIT_FAILURE;
+    }
     RSA_free(key);
     RSA_free(publickey);
-    C_CLOSE_SOCKET(fd_client);
+    CLOSE_SOCKET(fd_client);
     return EXIT_SUCCESS;
 }
 
 RSA *c_recv_publickey(int fd) {
     char *buf = (char *) malloc(4096 * sizeof(char));
+    if (buf == NULL) {
+        return NULL;
+    }
     bzero(buf, 4096);
     int bytes_rcv = recv(fd, buf, 4095, 0);
     if (bytes_rcv < 0) {
@@ -81,8 +94,13 @@ int c_send_publickey(int fd, RSA *key, RSA *otherkey) {
         RSA_free(publickey);
         return EXIT_FAILURE;
     }
-    PEM_write_RSAPublicKey(fp, publickey);
-    int status = send_file(fp, fd, otherkey);
+    if (!PEM_write_RSAPublicKey(fp, publickey)) {
+        RSA_free(publickey);
+        fclose(fp);
+        unlink("sended.key");
+        return EXIT_FAILURE;
+    }
+    int status = send_file(fp, fd, otherkey, NULL);
     fclose(fp);
     unlink("sended.key");
     RSA_free(publickey);
