@@ -38,5 +38,7 @@
 int send_file(FILE *fp, int fd, RSA *otherkey, ssize_t *len);
 int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len);
 RSA *create_rsa_key(void);
+int send_message(int fd, char *msg, RSA *publickey);
+char *get_message(int fd, RSA *privatekey);
 
 #endif

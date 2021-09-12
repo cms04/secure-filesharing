@@ -62,13 +62,21 @@ int init_server(char *ipaddr, uint16_t port) {
     }
     LOG("Publickey successfully recieved");
 
-    FILE *fp = fopen("server_got.msg", "w");
-    recv_file(fp, fd_client, key, NULL);
-    fclose(fp);
-    fp = fopen("server.msg", "w+");
-    fprintf(fp, "Hallo Client!");
-    send_file(fp, fd_client, publickey, NULL);
-    FCLOSE_UNLINK(fp, "server.msg");
+    char *msg = get_message(fd_client, key);
+    if (msg == NULL) {
+        RSA_free(publickey);
+        RSA_free(key);
+        CLOSE_SOCKET(fd_client);
+        PRINT_ERROR("get_message");
+    }
+    printf("%s\n", msg);
+    free(msg);
+    if (send_message(fd_client, "Hallo Client!", publickey)) {
+        RSA_free(publickey);
+        RSA_free(key);
+        CLOSE_SOCKET(fd_client);
+        PRINT_ERROR("send_message");
+    }
 
     RSA_free(publickey);
     RSA_free(key);
