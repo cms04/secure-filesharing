@@ -27,6 +27,7 @@ int init_client(char *ipaddr, uint16_t port) {
         PRINT_ERROR("connect");
     }
     LOG("Accepted one connection.");
+    LOG("Waiting for the server's publickey...");
     RSA *publickey = c_recv_publickey(fd_client);
     if (publickey == NULL) {
         CLOSE_SOCKET(fd_client);
@@ -48,23 +49,24 @@ int init_client(char *ipaddr, uint16_t port) {
         PRINT_ERROR("c_send_publickey");
     }
     LOG("Your publickey was sended to the server.");
-
-    if (send_message(fd_client, "Hallo Server!", publickey)) {
+    LOG("Recieving file list...");
+    size_t n = 0;
+    char **file_list = get_filelist(fd_client, key, &n);
+    if (file_list == NULL) {
         RSA_free(publickey);
         RSA_free(key);
         CLOSE_SOCKET(fd_client);
-        PRINT_ERROR("send_message");
+        PRINT_ERROR("get_filelist");
     }
-    char *msg = get_message(fd_client, key);
-    if (msg == NULL) {
-        RSA_free(publickey);
-        RSA_free(key);
-        CLOSE_SOCKET(fd_client);
-        PRINT_ERROR("get_message");
+    LOG("File list recieved:");
+    for (size_t i = 0; i < n; i++) {
+        printf("\t(%ld) %s\n", i+1, file_list[i]);
     }
-    printf("%s\n", msg);
-    free(msg);
 
+    for (size_t i = 0; i < n; i++) {
+        free(file_list[i]);
+    }
+    free(file_list);
     RSA_free(key);
     RSA_free(publickey);
     LOG("Closing connection...");
@@ -135,4 +137,28 @@ int c_send_publickey(int fd, RSA *key, RSA *otherkey) {
     FCLOSE_UNLINK(fp, "sended.key");
     RSA_free(publickey);
     return EXIT_SUCCESS;
+}
+
+char **get_filelist(int fd, RSA *privatekey, size_t *n) {
+    char *len_string = get_message(fd, privatekey);
+    if (len_string == NULL) {
+        PRINT_ERROR_RETURN_NULL("get_message");
+    }
+    *n = atoi(len_string);
+    free(len_string);
+    char **file_list = (char **) malloc((*n) * sizeof(char *));
+    if (file_list == NULL) {
+        PRINT_ERROR_RETURN_NULL("malloc");
+    }
+    for (size_t i = 0; i < (*n); i++) {
+        file_list[i] = get_message(fd, privatekey);
+        if (file_list[i] == NULL) {
+            for (size_t j = 0; j < i; j++) {
+                free(file_list[j]);
+            }
+            free(file_list);
+            PRINT_ERROR_RETURN_NULL("get_message");
+        }
+    }
+    return file_list;
 }

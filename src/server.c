@@ -10,7 +10,7 @@
 #include "server.h"
 #include "functions.h"
 
-int init_server(char *ipaddr, uint16_t port) {
+int init_server(char *ipaddr, uint16_t port, char **file_list, size_t n) {
     LOG("Initializing server...");
     int fd_server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd_server == 0) {
@@ -53,7 +53,7 @@ int init_server(char *ipaddr, uint16_t port) {
         PRINT_ERROR("s_send_publickey");
     }
     LOG("Your publickey was sended successfully.");
-    LOG("Recieving the client's publickey...");
+    LOG("Waiting for the client's publickey...");
     RSA *publickey = s_recv_publickey(fd_client, key);
     if (publickey == NULL) {
         RSA_free(key);
@@ -61,22 +61,14 @@ int init_server(char *ipaddr, uint16_t port) {
         PRINT_ERROR("s_recv_publickey");
     }
     LOG("Publickey successfully recieved");
-
-    char *msg = get_message(fd_client, key);
-    if (msg == NULL) {
-        RSA_free(publickey);
+    LOG("Sending file list...");
+    if (send_filelist(file_list, n, fd_client, publickey)) {
         RSA_free(key);
-        CLOSE_SOCKET(fd_client);
-        PRINT_ERROR("get_message");
-    }
-    printf("%s\n", msg);
-    free(msg);
-    if (send_message(fd_client, "Hallo Client!", publickey)) {
         RSA_free(publickey);
-        RSA_free(key);
-        CLOSE_SOCKET(fd_client);
-        PRINT_ERROR("send_message");
+        CLOSE_2_SOCKETS(fd_client, fd_server);
+        PRINT_ERROR("send_filelist");
     }
+    LOG("File list was sended successfully");
 
     RSA_free(publickey);
     RSA_free(key);
@@ -153,4 +145,19 @@ RSA *s_recv_publickey(int fd, RSA *key) {
     }
     FCLOSE_UNLINK(fp, "recieved.key");
     return publickey;
+}
+
+int send_filelist(char **file_list, size_t n, int fd, RSA *publickey) {
+    char len_string[LEN_BUFFER_SIZE];
+    bzero(len_string, LEN_BUFFER_SIZE);
+    snprintf(len_string, LEN_BUFFER_SIZE - 1, "%ld", n);
+    if (send_message(fd, len_string, publickey)) {
+        PRINT_ERROR("send_message");
+    }
+    for (size_t i = 0; i < n; i++) {
+        if (send_message(fd, file_list[i], publickey)) {
+            PRINT_ERROR("send_message");
+        }
+    }
+    return EXIT_SUCCESS;
 }

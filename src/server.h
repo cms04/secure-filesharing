@@ -5,9 +5,12 @@
 #include <unistd.h>
 #include <openssl/rsa.h>
 
-int init_server(char *ipaddr, uint16_t port);
+#define LEN_BUFFER_SIZE 10
+
+int init_server(char *ipaddr, uint16_t port, char **file_list, size_t n);
 RSA *s_create_rsa_key(void);
 int s_send_publickey(int fd, RSA *key);
 RSA *s_recv_publickey(int fd, RSA *key);
+int send_filelist(char **file_list, size_t n, int fd, RSA *publickey);
 
 #endif
