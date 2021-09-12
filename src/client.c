@@ -60,9 +60,18 @@ int init_client(char *ipaddr, uint16_t port) {
     }
     LOG("File list recieved:");
     for (size_t i = 0; i < n; i++) {
-        printf("\t(%ld) %s\n", i+1, file_list[i]);
+        //printf("\t(%ld) %s\n", i+1, get_filename(file_list[i]));
     }
-
+    if (recv_files(file_list, n, fd_client, key)) {
+        for (size_t i = 0; i < n; i++) {
+            free(file_list[i]);
+        }
+        free(file_list);
+        RSA_free(publickey);
+        RSA_free(key);
+        CLOSE_SOCKET(fd_client);
+        PRINT_ERROR("recv_files");
+    }
     for (size_t i = 0; i < n; i++) {
         free(file_list[i]);
     }
@@ -161,4 +170,32 @@ char **get_filelist(int fd, RSA *privatekey, size_t *n) {
         }
     }
     return file_list;
+}
+
+char *get_filename(char *file_path) {
+    char *ptr = file_path, *old_ptr = file_path;
+    if ((ptr = strtok(ptr, "/")) == NULL) {
+        return file_path;
+    }
+    old_ptr = ptr;
+    while ((ptr = strtok(NULL, "/")) != NULL) {
+        old_ptr = ptr;
+    }
+    return old_ptr;
+}
+
+int recv_files(char **file_list, size_t n, int fd, RSA *privatekey) {
+    for (size_t i = 0; i < n; i++) {
+        FILE *fp = fopen(get_filename(file_list[i]), "w");
+        if (fp == NULL) {
+            PRINT_ERROR("fopen");
+        }
+        LOG_RECV_FILENAME(file_list[i]);
+        if (recv_file(fp, fd, privatekey, NULL)) {
+            fclose(fp);
+            PRINT_ERROR("send_file");
+        }
+        fclose(fp);
+    }
+    return EXIT_SUCCESS;
 }

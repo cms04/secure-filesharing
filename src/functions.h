@@ -11,6 +11,8 @@
 #define LOG(text) printf("[✔] %s\n", text)
 #define LOG_BLOCKS(sum) printf("[✔] Sending %ld blocks...\n\n", sum)
 #define LOG_RECIEVING(sum) printf("[✔] Recieving %ld blocks...\n\n", sum)
+#define LOG_SEND_FILENAME(filename) printf("[✔] Sending file: %s...\n\n", filename)
+#define LOG_RECV_FILENAME(filename) printf("[✔] Recieving file: %s...\n\n", filename)
 #define LOG_PROGRESS(part, sum) printf("\033[A\r\tSended block %ld of %ld\t\t(%3.0f percent)\n", part, sum, 100 * ((float) part) / sum)
 #define LOG_RECIEVED(part, sum) printf("\033[A\r\tRecieved block %ld of %ld\t\t(%3.0f percent)\n", part, sum, 100 * ((float) part) / sum)
 

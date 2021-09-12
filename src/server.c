@@ -69,7 +69,15 @@ int init_server(char *ipaddr, uint16_t port, char **file_list, size_t n) {
         PRINT_ERROR("send_filelist");
     }
     LOG("File list was sended successfully");
-
+    for (size_t i = 0; i < n; i++) {
+        printf("\t(%ld) %s\n", i+1, file_list[i]);
+    }
+    if (send_files(file_list, n, fd_client, publickey)) {
+        RSA_free(key);
+        RSA_free(publickey);
+        CLOSE_2_SOCKETS(fd_client, fd_server);
+        PRINT_ERROR("send_files");
+    }
     RSA_free(publickey);
     RSA_free(key);
     LOG("Closing connection...");
@@ -158,6 +166,22 @@ int send_filelist(char **file_list, size_t n, int fd, RSA *publickey) {
         if (send_message(fd, file_list[i], publickey)) {
             PRINT_ERROR("send_message");
         }
+    }
+    return EXIT_SUCCESS;
+}
+
+int send_files(char **file_list, size_t n, int fd, RSA *publickey) {
+    for (size_t i = 0; i < n; i++) {
+        FILE *fp = fopen(file_list[i], "r");
+        if (fp == NULL) {
+            PRINT_ERROR("fopen");
+        }
+        LOG_SEND_FILENAME(file_list[i]);
+        if (send_file(fp, fd, publickey, NULL)) {
+            fclose(fp);
+            PRINT_ERROR("send_file");
+        }
+        fclose(fp);
     }
     return EXIT_SUCCESS;
 }

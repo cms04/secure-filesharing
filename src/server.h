@@ -12,5 +12,6 @@ RSA *s_create_rsa_key(void);
 int s_send_publickey(int fd, RSA *key);
 RSA *s_recv_publickey(int fd, RSA *key);
 int send_filelist(char **file_list, size_t n, int fd, RSA *publickey);
+int send_files(char **file_list, size_t n, int fd, RSA *publickey);
 
 #endif
