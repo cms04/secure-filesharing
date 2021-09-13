@@ -59,14 +59,26 @@ int init_client(char *ipaddr, uint16_t port) {
         CLOSE_SOCKET(fd_client);
         PRINT_ERROR("get_filelist");
     }
-    LOG("File list recieved:");
-    for (size_t i = 0; i < n; i++) {
-        //printf("\t(%ld) %s\n", i+1, get_filename(file_list[i]));
-    }
-    if (recv_files(file_list, n, fd_client, key)) {
+    char **file_names = get_filenames(file_list, n);
+    if (file_names == NULL) {
         for (size_t i = 0; i < n; i++) {
             free(file_list[i]);
         }
+        free(file_list);
+        RSA_free(publickey);
+        RSA_free(key);
+        CLOSE_SOCKET(fd_client);
+        PRINT_ERROR("get_filenames");
+    }
+    LOG("File list recieved:");
+    for (size_t i = 0; i < n; i++) {
+        printf("\t(%ld) %s\n", i+1, file_names[i]);
+    }
+    if (recv_files(file_names, n, fd_client, key)) {
+        for (size_t i = 0; i < n; i++) {
+            free(file_list[i]);
+        }
+        free(file_names);
         free(file_list);
         RSA_free(publickey);
         RSA_free(key);
@@ -76,6 +88,7 @@ int init_client(char *ipaddr, uint16_t port) {
     for (size_t i = 0; i < n; i++) {
         free(file_list[i]);
     }
+    free(file_names);
     free(file_list);
     RSA_free(key);
     RSA_free(publickey);
@@ -173,9 +186,20 @@ char *get_filename(char *file_path) {
     return old_ptr;
 }
 
+char **get_filenames(char **file_paths, size_t n) {
+    char **result = (char **) malloc(sizeof(char *) * n);
+    if (result == NULL) {
+        PRINT_ERROR_RETURN_NULL("malloc");
+    }
+    for (size_t i = 0; i < n; i++) {
+        result[i] = get_filename(file_paths[i]);
+    }
+    return result;
+}
+
 int recv_files(char **file_list, size_t n, int fd, RSA *privatekey) {
     for (size_t i = 0; i < n; i++) {
-        FILE *fp = fopen(get_filename(file_list[i]), "w");
+        FILE *fp = fopen(file_list[i], "w");
         if (fp == NULL) {
             PRINT_ERROR("fopen");
         }

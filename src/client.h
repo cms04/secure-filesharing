@@ -14,5 +14,6 @@ int c_send_file(FILE *fp, int fd, RSA *otherkey);
 char **get_filelist(int fd, RSA *privatekey, size_t *n);
 char *get_filename(char *file_path);
 int recv_files(char **file_list, size_t n, int fd, RSA *privatekey);
+char **get_filenames(char **file_paths, size_t n);
 
 #endif
