@@ -122,7 +122,11 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len) {
             free(block);
             ERROR_OPENSSL("RSA_private_decrypt");
         }
-        fwrite(block, sizeof(char), block_size, fp);
+        if (i == block_count - 1) {
+            fwrite(block, sizeof(char), block_len(block, block_size), fp);
+        } else {
+            fwrite(block, sizeof(char), block_size, fp);
+        }
         LOG_RECIEVED(i + 1, block_count);
     }
     if (len != NULL) {
@@ -229,4 +233,11 @@ char *get_message(int fd, RSA *privatekey) {
     free(crypt);
     free(block);
     return msg;
+}
+
+size_t block_len(char *block, size_t block_len) {
+    while (block[block_len - 1] == '\0') {
+        block_len--;
+    }
+    return block_len;
 }

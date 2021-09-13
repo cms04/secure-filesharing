@@ -42,5 +42,6 @@ int recv_file(FILE *fp, int fd, RSA *key, ssize_t *len);
 RSA *create_rsa_key(void);
 int send_message(int fd, char *msg, RSA *publickey);
 char *get_message(int fd, RSA *privatekey);
+size_t block_len(char *block, size_t block_len);
 
 #endif
