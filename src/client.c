@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <openssl/pem.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 #include "client.h"
@@ -85,29 +86,17 @@ int init_client(char *ipaddr, uint16_t port) {
 }
 
 RSA *c_recv_publickey(int fd) {
-    char len_string[16];
-    bzero(len_string, 16);
-    if (recv(fd, len_string, 15, 0) < 0) {
-        PRINT_ERROR_RETURN_NULL("recv");
-    }
-    size_t len = strtoul(len_string, NULL, 10);
-    char *buf = (char *) malloc(len * sizeof(char));
-    if (buf == NULL) {
-        PRINT_ERROR_RETURN_NULL("malloc");
-    }
-    bzero(buf, len);
-    int bytes_rcv = recv(fd, buf, len, 0);
+    char buf[4096];
+    bzero(buf, 4096);
+    int bytes_rcv = recv(fd, buf, 4096, 0);
     if (bytes_rcv < 0) {
-        free(buf);
         PRINT_ERROR_RETURN_NULL("recv");
     }
     FILE *fp = fopen("recieved.key", "w+");
     if (fp == NULL) {
-        free(buf);
         PRINT_ERROR_RETURN_NULL("fopen");
     }
     fwrite(buf, sizeof(char), bytes_rcv, fp);
-    free(buf);
     fseek(fp, 0, SEEK_SET);
     RSA *publickey = RSA_new();
     if (publickey == NULL) {

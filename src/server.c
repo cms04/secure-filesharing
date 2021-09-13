@@ -110,14 +110,6 @@ int s_send_publickey(int fd, RSA *key) {
         PRINT_ERROR("malloc");
     }
     bzero(buf, len);
-    snprintf(buf, len - 1, "%ld", len);
-    if (send(fd, buf, 15, 0) < 0) {
-        RSA_free(publickey);
-        FCLOSE_UNLINK(fp, "sended.key");
-        free(buf);
-        PRINT_ERROR("send");
-    }
-    bzero(buf, len);
     fread(buf, sizeof(char), len, fp);
     int bytes_sent = send(fd, buf, len, 0);
     free(buf);
